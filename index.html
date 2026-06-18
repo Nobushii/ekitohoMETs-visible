@@ -186,7 +186,7 @@
 
   // 全員分の算出データを集計するスプレッドシートの送信先（GAS Web App の /exec URL）。
   // 空のままなら送信せず、従来どおり localStorage のみで動作する。
-  var LOG_ENDPOINT='';
+  var LOG_ENDPOINT='https://script.google.com/macros/s/AKfycbwnQWTPrAP-3P6knqW9dNiFgGkx4GejMP863_kJYtPa1sFpc6rqjveqRYE_vqXJXJjLKw/exec';
 
   var store={
     get:function(){try{var s=localStorage.getItem('walk_index_rows');return s?JSON.parse(s):[];}catch(e){return rows;}},
