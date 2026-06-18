@@ -177,7 +177,6 @@
 
     <div class="btnrow">
       <button class="primary" id="add">この条件を比較表に追加</button>
-      <button id="export">JSONをコピー</button>
     </div>
     <p class="foot" id="logNote" hidden>「比較表に追加」を押すと、算出データが匿名で集計用シートに記録されます。物件名などに個人情報は入力しないでください。</p>
   </div>
@@ -454,16 +453,6 @@
       crossings:num('crossings',0), local:num('local',1),
       stroller:$('stroller').checked, carry:$('carry').checked, speed:c.speed
     });
-  });
-
-  $('export').addEventListener('click',function(){
-    var txt=JSON.stringify(rows,null,2);
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(txt).then(function(){
-        $('export').textContent='コピーしました';
-        setTimeout(function(){$('export').textContent='JSONをコピー';},1500);
-      });
-    }
   });
 
   // タブ切り替え
