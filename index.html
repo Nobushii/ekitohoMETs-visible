@@ -117,7 +117,7 @@
       <div><label for="name">物件名</label><input type="text" id="name" value="A物件"></div>
       <div><label for="station">最寄駅</label><input type="text" id="station" value=""></div>
       <div><label for="dist">駅までの道路距離 (m)</label><input type="number" id="dist" value="800" min="1" step="10"></div>
-      <div><label for="elev">自宅と駅の高低差 (m) <span style="color:var(--ink-3)">かんたん入力</span></label><input type="number" id="elev" value="40" min="0" step="1"></div>
+      <div><label for="elev">自宅と駅の高低差 (m) <span style="color:var(--ink-3)">かんたん入力</span></label><input type="number" id="elev" value="" min="0" step="1" placeholder="未入力＝0"></div>
       <div><label for="wt">体重 (kg) <span style="color:var(--ink-3)">任意・kcal計算のみ</span></label><input type="number" id="wt" value="65" min="1" step="1"></div>
       <div><label for="ascent">片道 登り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="ascent" value="0" min="0" step="1"></div>
       <div><label for="descent">片道 下り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="descent" value="0" min="0" step="1"></div>
@@ -139,8 +139,12 @@
 
   <div class="card">
     <h2>徒歩ルート（Googleマップ）</h2>
-    <div id="routewrap"></div>
-    <p class="foot">物件名（または住所）→最寄駅の徒歩ルート。表示された距離を「駅までの道路距離」に手入力してください。</p>
+    <div class="grid">
+      <div><label for="r-origin">出発地（住所・物件名）</label><input type="text" id="r-origin" placeholder="物件名または住所"></div>
+      <div><label for="r-dest">目的地（駅・住所）</label><input type="text" id="r-dest" placeholder="最寄駅または住所"></div>
+    </div>
+    <div id="routewrap" style="margin-top:12px"></div>
+    <p class="foot">出発地・目的地を直接入力して徒歩ルートを表示できます（未入力なら物件名→最寄駅で自動表示）。表示された距離を「駅までの道路距離」に手入力してください。</p>
   </div>
 
   <div class="card">
@@ -328,17 +332,21 @@
       w.innerHTML='<p class="empty">Googleマップ徒歩ルートを表示するには、Maps Embed API のキーを設定してください（READMEの手順）。設定すると 物件名→最寄駅 の徒歩ルートが出ます。</p>';
       return;
     }
+    // 経路入力欄を優先。空なら物件名→最寄駅にフォールバック。
     var name=($('name').value||'').trim();
     var station=($('station').value||'').trim();
+    var origin=($('r-origin').value||'').trim()||name;
+    var destIn=($('r-dest').value||'').trim();
+    var dest=destIn||(station?station+' 駅':'');
     var base='https://www.google.com/maps/embed/v1/';
     var src;
-    if(name&&station){
+    if(origin&&dest){
       src=base+'directions?key='+MAPS_EMBED_KEY+'&mode=walking'+
-        '&origin='+encodeURIComponent(name)+'&destination='+encodeURIComponent(station+' 駅');
-    }else if(name||station){
-      src=base+'place?key='+MAPS_EMBED_KEY+'&q='+encodeURIComponent((name||station)+' 駅');
+        '&origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(dest);
+    }else if(origin||dest){
+      src=base+'place?key='+MAPS_EMBED_KEY+'&q='+encodeURIComponent(origin||dest);
     }else{
-      w.innerHTML='<p class="empty">物件名・最寄駅を入力すると徒歩ルートが表示されます。</p>';
+      w.innerHTML='<p class="empty">出発地・目的地（または物件名・最寄駅）を入力すると徒歩ルートが表示されます。</p>';
       return;
     }
     w.innerHTML='<iframe class="maproute" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen src="'+src+'"></iframe>';
@@ -414,9 +422,11 @@
   inputs.forEach(function(id){$(id).addEventListener('input',render);});
   $('stroller').addEventListener('change',render);
   $('carry').addEventListener('change',render);
-  // 物件名・最寄駅の変更で徒歩ルート地図を更新
+  // 物件名・最寄駅・経路入力欄の変更で徒歩ルート地図を更新
   $('name').addEventListener('input',renderRoute);
   $('station').addEventListener('input',renderRoute);
+  $('r-origin').addEventListener('input',renderRoute);
+  $('r-dest').addEventListener('input',renderRoute);
 
   $('add').addEventListener('click',function(){
     var r=calc();
