@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>駅徒歩 体感指標 — 勾配・補正込みの物件比較</title>
+<style>
+  :root{
+    --bg:#f6f8f6; --surface:#ffffff; --surface-2:#eef1ee;
+    --ink:#1d2a24; --ink-2:#5b6a62; --ink-3:#8a978f;
+    --line:#dde3df; --accent:#1f6e56; --accent-soft:#e2efe9;
+    --ok-bg:#e6f1ea; --ok:#1f6e56;
+    --info-bg:#e6eef6; --info:#1c5aa0;
+    --warn-bg:#faf0db; --warn:#8a5a09;
+    --bad-bg:#f8e7e5; --bad:#a23226;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    --r:10px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#13181a; --surface:#1b2123; --surface-2:#232b2d;
+      --ink:#e6ebe7; --ink-2:#9fb0a8; --ink-3:#6f7e77;
+      --line:#2c3537; --accent:#4fb495; --accent-soft:#1f3530;
+      --ok-bg:#1c3530; --ok:#6fcfb1; --info-bg:#1b2c3e; --info:#7db4ec;
+      --warn-bg:#33290f; --warn:#e3b25a; --bad-bg:#3a201d; --bad:#ec8579;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.6;-webkit-font-smoothing:antialiased;font-size:15px}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 18px 64px}
+  header{margin-bottom:22px}
+  h1{font-size:21px;font-weight:600;letter-spacing:.01em;margin:0 0 4px}
+  .sub{color:var(--ink-2);font-size:13.5px;margin:0}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:18px;margin-bottom:18px}
+  .card h2{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--ink-3);margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+  label{display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:5px}
+  input[type=text],input[type=number]{width:100%;height:38px;padding:0 10px;font-size:15px;
+    font-family:var(--sans);color:var(--ink);background:var(--surface);
+    border:1px solid var(--line);border-radius:8px;outline:none}
+  input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .toggles{display:flex;flex-wrap:wrap;gap:18px;margin-top:14px;align-items:center}
+  .chk{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--ink);cursor:pointer}
+  .chk input{width:17px;height:17px;accent-color:var(--accent)}
+  .subhead{font-size:12px;font-weight:600;letter-spacing:.03em;color:var(--ink-3);
+    margin:18px 0 10px;padding-top:14px;border-top:1px dashed var(--line)}
+  .verdict{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
+    padding:7px 16px;border-radius:999px;margin-bottom:16px}
+  .readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .ro{background:var(--surface);padding:12px 14px}
+  .ro .k{font-size:11.5px;color:var(--ink-2);letter-spacing:.02em}
+  .ro .v{font-family:var(--mono);font-size:23px;font-weight:600;line-height:1.25;margin-top:3px}
+  .ro .v small{font-size:13px;font-weight:500;color:var(--ink-2)}
+  .ro .note{font-size:11px;color:var(--ink-3);margin-top:1px}
+  .profile{margin-top:16px;background:var(--surface-2);border-radius:var(--r);padding:12px 14px}
+  .profile .cap{font-size:11.5px;color:var(--ink-3);margin-bottom:4px}
+  svg{display:block;width:100%;height:auto}
+  .btnrow{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  button{font-family:var(--sans);font-size:14px;font-weight:500;color:var(--ink);
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:9px 16px;cursor:pointer;transition:background .12s,transform .06s}
+  button:hover{background:var(--surface-2)}
+  button:active{transform:scale(.98)}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.primary:hover{filter:brightness(1.06)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  th{font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--ink-3)}
+  td.num,th.num{font-family:var(--mono);text-align:right}
+  .pill{font-family:var(--mono);font-weight:600;padding:2px 9px;border-radius:999px;font-size:12.5px}
+  .del{padding:3px 9px;font-size:13px;line-height:1;border-radius:6px}
+  .empty{color:var(--ink-3);font-size:13px;margin:0}
+  details{margin-bottom:18px}
+  summary{cursor:pointer;font-size:13.5px;font-weight:600;color:var(--ink-2);
+    padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+  summary:hover{color:var(--ink)}
+  details[open] summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
+  .details-body{border:1px solid var(--line);border-top:none;
+    border-radius:0 0 var(--r) var(--r);padding:18px;background:var(--surface)}
+  .details-body p{margin:0 0 10px;font-size:13.5px;color:var(--ink-2)}
+  .details-body code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);
+    padding:2px 6px;border-radius:5px;color:var(--ink)}
+  .kf{display:grid;grid-template-columns:1fr 96px;gap:8px 12px;align-items:center;
+    font-size:13.5px;margin-bottom:9px}
+  .kf label{margin:0}
+  .kf input{height:34px}
+  .foot{font-size:12px;color:var(--ink-3);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>駅徒歩 体感指標</h1>
+    <p class="sub">不動産広告の「徒歩◯分（80m/分）」を、勾配・階段・信号・荷重で補正して比較する。</p>
+  </header>
+
+  <div class="card">
+    <h2>物件の入力</h2>
+    <div class="grid">
+      <div><label for="name">物件名</label><input type="text" id="name" value="A物件"></div>
+      <div><label for="dist">駅までの道路距離 (m)</label><input type="number" id="dist" value="800" min="1" step="10"></div>
+      <div><label for="elev">自宅と駅の高低差 (m)</label><input type="number" id="elev" value="40" min="0" step="1"></div>
+      <div><label for="wt">体重 (kg) <span style="color:var(--ink-3)">任意・kcal計算のみ</span></label><input type="number" id="wt" value="50" min="1" step="1"></div>
+    </div>
+
+    <div class="subhead">現地補正</div>
+    <div class="grid">
+      <div><label for="steps">階段の段数（合計）</label><input type="number" id="steps" value="0" min="0" step="1"></div>
+      <div><label for="signals">信号・大通り横断の回数</label><input type="number" id="signals" value="0" min="0" step="1"></div>
+      <div><label for="crossings">踏切の回数</label><input type="number" id="crossings" value="0" min="0" step="1"></div>
+      <div><label for="local">現地補正係数（歩いた後の主観）</label><input type="number" id="local" value="1.00" min="0.5" step="0.05"></div>
+    </div>
+    <div class="toggles">
+      <label class="chk"><input type="checkbox" id="stroller"> ベビーカー</label>
+      <label class="chk"><input type="checkbox" id="carry"> 抱っこ（乳児連れ）</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>結果（基準は「夜の登り帰宅」）</h2>
+    <span class="verdict" id="verdict"></span>
+    <div class="readouts">
+      <div class="ro"><div class="k">法定徒歩分数 (80m/分)</div><div class="v"><span id="o-legal">–</span><small> 分</small></div></div>
+      <div class="ro"><div class="k">体感分数（労力＋待ち）</div><div class="v"><span id="o-taikan">–</span><small> 分</small></div></div>
+      <div class="ro"><div class="k">実所要時間 目安</div><div class="v"><span id="o-elapsed">–</span><small> 分</small></div></div>
+      <div class="ro"><div class="k">登りの運動強度</div><div class="v"><span id="o-mets">–</span><small> METs</small></div><div class="note">平地比 <span id="o-ratio">–</span>倍</div></div>
+      <div class="ro"><div class="k">平均勾配</div><div class="v"><span id="o-grade">–</span><small> %</small></div></div>
+      <div class="ro"><div class="k">1往復の消費</div><div class="v"><span id="o-rt">–</span><small> kcal</small></div></div>
+      <div class="ro"><div class="k">月20往復の消費</div><div class="v"><span id="o-month">–</span><small> kcal</small></div></div>
+      <div class="ro"><div class="k">コース定数 往復（参考）</div><div class="v"><span id="o-cc">–</span></div></div>
+    </div>
+
+    <div class="profile">
+      <div class="cap">ルート断面（駅 → 自宅）</div>
+      <svg id="profile" viewBox="0 0 320 120" preserveAspectRatio="xMidYMid meet" role="img" aria-label="駅から自宅までの傾斜断面図"></svg>
+    </div>
+
+    <div class="btnrow">
+      <button class="primary" id="add">この条件を比較表に追加</button>
+      <button id="export">JSONをコピー</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>物件比較（体感分数の小さい順）</h2>
+    <div id="tablewrap"></div>
+  </div>
+
+  <details>
+    <summary>係数の設定（調整できます）</summary>
+    <div class="details-body">
+      <div class="kf"><label for="c-speed">歩行速度 (m/分)</label><input type="number" id="c-speed" value="80" min="40" step="1"></div>
+      <div class="kf"><label for="c-stair">階段1段の高さ (m)</label><input type="number" id="c-stair" value="0.17" min="0.05" step="0.01"></div>
+      <div class="kf"><label for="c-signal">信号1回の想定待ち (分)</label><input type="number" id="c-signal" value="0.5" min="0" step="0.1"></div>
+      <div class="kf"><label for="c-cross">踏切1回の想定待ち (分)</label><input type="number" id="c-cross" value="1.0" min="0" step="0.1"></div>
+      <div class="kf"><label for="c-stroller">ベビーカーの労力倍率</label><input type="number" id="c-stroller" value="1.20" min="1" step="0.05"></div>
+      <div class="kf"><label for="c-carry">抱っこの労力倍率</label><input type="number" id="c-carry" value="1.15" min="1" step="0.05"></div>
+      <p class="foot">変更すると即座に再計算します。比較表に追加済みの行は追加時点の値で固定されます。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>計算根拠</summary>
+    <div class="details-body">
+      <p><strong>法定徒歩分数</strong>：不動産表示規約で <code>道路距離 ÷ 80m</code>（端数切上げ）。勾配・信号・階段は含まない基準値。</p>
+      <p><strong>運動強度 METs</strong>：ACSM歩行式 <code>VO₂ = 0.1·S + 1.8·S·勾配 + 3.5</code>、<code>METs = VO₂÷3.5</code>。Sは速度(m/分)。平地80m/分で約3.3 METs。</p>
+      <p><strong>体感分数</strong> = 法定分 ×（登りMETs ÷ 平地METs）× 荷重倍率 ＋ 待ち時間。荷重倍率＝ベビーカー×抱っこ×現地補正。階段は <code>段数 × 1段の高さ</code> を高低差に加算して勾配へ反映。</p>
+      <p><strong>消費カロリー</strong> = METs × 体重 × 時間。<strong>体重はここだけに効きます</strong>（体感分数・判定には無関係）。</p>
+      <p><strong>コース定数</strong> = <code>1.8·時間(h) + 0.3·距離(km) + 10·登り(km) + 0.6·下り(km)</code>。登山向けの式で短距離は登り項を過大評価しがちなので、絶対値より物件間の相対順位として使う。</p>
+      <p class="foot">下りは平地相当として扱う簡略化。実際の登坂はこの数字より時間がかかる。判定バンドは登りMETs×荷重倍率：〜3.5 楽 / 〜5 標準 / 〜6.5 ややきつい / それ以上 きつい。</p>
+    </div>
+  </details>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var rows=[];
+
+  var store={
+    get:function(){try{var s=localStorage.getItem('walk_index_rows');return s?JSON.parse(s):[];}catch(e){return rows;}},
+    set:function(v){rows=v;try{localStorage.setItem('walk_index_rows',JSON.stringify(v));}catch(e){}}
+  };
+
+  function num(id,def){var v=parseFloat($(id).value);return isFinite(v)?v:def;}
+
+  function consts(){
+    return {
+      speed:Math.max(1,num('c-speed',80)),
+      stair:num('c-stair',0.17),
+      sigWait:num('c-signal',0.5),
+      crossWait:num('c-cross',1.0),
+      strollerF:num('c-stroller',1.20),
+      carryF:num('c-carry',1.15)
+    };
+  }
+
+  function calc(){
+    var c=consts();
+    var dist=Math.max(1,num('dist',0));
+    var elevIn=Math.max(0,num('elev',0));
+    var steps=Math.max(0,num('steps',0));
+    var wt=Math.max(1,num('wt',50));
+    var signals=Math.max(0,num('signals',0));
+    var crossings=Math.max(0,num('crossings',0));
+    var local=Math.max(0,num('local',1));
+    var stroller=$('stroller').checked;
+    var carry=$('carry').checked;
+
+    var elev=elevIn+steps*c.stair;
+    var grade=elev/dist;
+    var flatMets=(0.1*c.speed+3.5)/3.5;
+    var upMets=(0.1*c.speed+1.8*c.speed*grade+3.5)/3.5;
+    var loadMult=local*(stroller?c.strollerF:1)*(carry?c.carryF:1);
+    var effMets=upMets*loadMult;
+    var ratio=upMets/flatMets;
+
+    var legal=Math.ceil(dist/c.speed);
+    var walkEquiv=legal*ratio*loadMult;
+    var wait=signals*c.sigWait+crossings*c.crossWait;
+    var taikan=walkEquiv+wait;
+    var elapsed=dist/c.speed+wait;
+
+    var th=(dist/c.speed)/60;
+    var kUp=upMets*loadMult*wt*th;
+    var kDown=flatMets*loadMult*wt*th;
+    var kRT=kUp+kDown;
+    var month=kRT*20;
+
+    var km=dist/1000, ekm=elev/1000, hrsRT=th*2;
+    var cc=1.8*hrsRT+0.3*(km*2)+10*ekm+0.6*ekm;
+
+    return {dist:dist,elev:elev,grade:grade,upMets:upMets,effMets:effMets,ratio:ratio,
+      loadMult:loadMult,legal:legal,taikan:taikan,elapsed:elapsed,kRT:kRT,month:month,cc:cc,
+      name:($('name').value||'無名')};
+  }
+
+  function band(m){
+    if(m<3.5) return ['楽（平地並み）','--ok-bg','--ok'];
+    if(m<5)   return ['標準','--info-bg','--info'];
+    if(m<6.5) return ['ややきつい','--warn-bg','--warn'];
+    return ['きつい（毎日はしんどい）','--bad-bg','--bad'];
+  }
+
+  function drawProfile(r){
+    var W=320,H=120,padL=26,padR=26,padB=22,padT=14;
+    var x0=padL,x1=W-padR,baseY=H-padB;
+    var maxRise=Math.max(r.elev,1);
+    var topY=padT;
+    var homeY=r.elev<=0?baseY:topY;
+    var accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+    var ink3=getComputedStyle(document.documentElement).getPropertyValue('--ink-3').trim();
+    var soft=getComputedStyle(document.documentElement).getPropertyValue('--accent-soft').trim();
+    var s='';
+    s+='<polygon points="'+x0+','+baseY+' '+x1+','+homeY+' '+x1+','+baseY+'" fill="'+soft+'"/>';
+    s+='<line x1="'+x0+'" y1="'+baseY+'" x2="'+x1+'" y2="'+homeY+'" stroke="'+accent+'" stroke-width="2.5"/>';
+    s+='<circle cx="'+x0+'" cy="'+baseY+'" r="4" fill="'+accent+'"/>';
+    s+='<text x="'+x0+'" y="'+(baseY+15)+'" fill="'+ink3+'" font-size="10" font-family="system-ui">駅</text>';
+    s+='<rect x="'+(x1-9)+'" y="'+(homeY-11)+'" width="14" height="11" fill="'+accent+'"/>';
+    s+='<polygon points="'+(x1-11)+','+(homeY-11)+' '+(x1-2)+','+(homeY-17)+' '+(x1+7)+','+(homeY-11)+'" fill="'+accent+'"/>';
+    s+='<text x="'+x1+'" y="'+(homeY-21)+'" fill="'+ink3+'" font-size="10" text-anchor="middle" font-family="system-ui">自宅</text>';
+    s+='<text x="'+((x0+x1)/2)+'" y="'+(H-4)+'" fill="'+ink3+'" font-size="10" text-anchor="middle" font-family="system-ui">'+Math.round(r.dist)+' m ・ 勾配 '+(r.grade*100).toFixed(1)+'%</text>';
+    if(r.elev>0) s+='<text x="'+(x1)+'" y="'+(homeY+3)+'" fill="'+ink3+'" font-size="10" text-anchor="end" font-family="system-ui">+'+Math.round(r.elev)+'m</text>';
+    $('profile').innerHTML=s;
+  }
+
+  function render(){
+    var r=calc();
+    $('o-legal').textContent=r.legal;
+    $('o-taikan').textContent=Math.round(r.taikan);
+    $('o-elapsed').textContent=Math.round(r.elapsed);
+    $('o-mets').textContent=r.upMets.toFixed(1);
+    $('o-ratio').textContent=r.ratio.toFixed(2);
+    $('o-grade').textContent=(r.grade*100).toFixed(1);
+    $('o-rt').textContent=Math.round(r.kRT);
+    $('o-month').textContent=Math.round(r.month).toLocaleString();
+    $('o-cc').textContent=r.cc.toFixed(2);
+    var b=band(r.effMets), v=$('verdict');
+    v.textContent=b[0];
+    v.style.background='var('+b[1]+')';
+    v.style.color='var('+b[2]+')';
+    drawProfile(r);
+  }
+
+  function renderTable(){
+    var w=$('tablewrap');
+    if(rows.length===0){w.innerHTML='<p class="empty">「比較表に追加」で物件を並べると、体感分数の小さい順に自動で並びます。データはこのブラウザに保存されます。</p>';return;}
+    var sorted=rows.slice().sort(function(a,b){return a.taikan-b.taikan;});
+    var h='<table><thead><tr><th>物件</th><th class="num">法定分</th><th class="num">勾配%</th><th class="num">体感分</th><th class="num">月kcal</th><th></th></tr></thead><tbody>';
+    sorted.forEach(function(r){
+      var b=band(r.effMets);
+      h+='<tr>';
+      h+='<td>'+r.name+'</td>';
+      h+='<td class="num">'+r.legal+'</td>';
+      h+='<td class="num">'+(r.grade*100).toFixed(1)+'</td>';
+      h+='<td class="num"><span class="pill" style="background:var('+b[1]+');color:var('+b[2]+')">'+Math.round(r.taikan)+'</span></td>';
+      h+='<td class="num">'+Math.round(r.month).toLocaleString()+'</td>';
+      h+='<td><button class="del" data-id="'+r.id+'" aria-label="削除">×</button></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table>';
+    w.innerHTML=h;
+    var btns=w.querySelectorAll('.del');
+    for(var i=0;i<btns.length;i++){
+      btns[i].addEventListener('click',function(e){
+        var id=e.currentTarget.getAttribute('data-id');
+        store.set(rows.filter(function(x){return String(x.id)!==String(id);}));
+        renderTable();
+      });
+    }
+  }
+
+  var inputs=['name','dist','elev','wt','steps','signals','crossings','local',
+    'c-speed','c-stair','c-signal','c-cross','c-stroller','c-carry'];
+  inputs.forEach(function(id){$(id).addEventListener('input',render);});
+  $('stroller').addEventListener('change',render);
+  $('carry').addEventListener('change',render);
+
+  $('add').addEventListener('click',function(){
+    var r=calc();
+    r.id=Date.now()+'-'+Math.round(Math.random()*1000);
+    var next=rows.slice();
+    next.push(r);
+    store.set(next);
+    renderTable();
+  });
+
+  $('export').addEventListener('click',function(){
+    var txt=JSON.stringify(rows,null,2);
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){
+        $('export').textContent='コピーしました';
+        setTimeout(function(){$('export').textContent='JSONをコピー';},1500);
+      });
+    }
+  });
+
+  rows=store.get();
+  render();
+  renderTable();
+})();
+</script>
+</body>
+</html>
