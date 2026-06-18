@@ -147,8 +147,8 @@
     </div>
 
     <div class="profile">
-      <div class="cap">ルート断面（駅 → 自宅）</div>
-      <svg id="profile" viewBox="0 0 320 120" preserveAspectRatio="xMidYMid meet" role="img" aria-label="駅から自宅までの傾斜断面図"></svg>
+      <div class="cap">片道の登り・下り (m)　※往復では登り＝下り＝V</div>
+      <div id="profilebars"></div>
     </div>
 
     <div class="btnrow">
@@ -327,25 +327,17 @@
   }
 
   function drawProfile(r){
-    var W=320,H=120,padL=26,padR=26,padB=22,padT=14;
-    var x0=padL,x1=W-padR,baseY=H-padB;
-    var maxRise=Math.max(r.elev,1);
-    var topY=padT;
-    var homeY=r.elev<=0?baseY:topY;
-    var accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    var ink3=getComputedStyle(document.documentElement).getPropertyValue('--ink-3').trim();
-    var soft=getComputedStyle(document.documentElement).getPropertyValue('--accent-soft').trim();
-    var s='';
-    s+='<polygon points="'+x0+','+baseY+' '+x1+','+homeY+' '+x1+','+baseY+'" fill="'+soft+'"/>';
-    s+='<line x1="'+x0+'" y1="'+baseY+'" x2="'+x1+'" y2="'+homeY+'" stroke="'+accent+'" stroke-width="2.5"/>';
-    s+='<circle cx="'+x0+'" cy="'+baseY+'" r="4" fill="'+accent+'"/>';
-    s+='<text x="'+x0+'" y="'+(baseY+15)+'" fill="'+ink3+'" font-size="10" font-family="system-ui">駅</text>';
-    s+='<rect x="'+(x1-9)+'" y="'+(homeY-11)+'" width="14" height="11" fill="'+accent+'"/>';
-    s+='<polygon points="'+(x1-11)+','+(homeY-11)+' '+(x1-2)+','+(homeY-17)+' '+(x1+7)+','+(homeY-11)+'" fill="'+accent+'"/>';
-    s+='<text x="'+x1+'" y="'+(homeY-21)+'" fill="'+ink3+'" font-size="10" text-anchor="middle" font-family="system-ui">自宅</text>';
-    s+='<text x="'+((x0+x1)/2)+'" y="'+(H-4)+'" fill="'+ink3+'" font-size="10" text-anchor="middle" font-family="system-ui">'+Math.round(r.dist)+' m ・ 往復累計 '+Math.round(r.reliefRT)+' m</text>';
-    if(r.elev>0) s+='<text x="'+(x1)+'" y="'+(homeY+3)+'" fill="'+ink3+'" font-size="10" text-anchor="end" font-family="system-ui">net +'+Math.round(r.elev)+'m</text>';
-    $('profile').innerHTML=s;
+    // 片道の登り(Au)・下り(Ad)を横棒で表示。スケールは両者の大きい方。
+    var scale=Math.max(r.ascent,r.descent,1);
+    function bar(label,val,color){
+      var pct=Math.max(0,Math.min(100,val/scale*100));
+      return '<div class="mref-row">'+
+        '<div class="mref-label">'+label+'</div>'+
+        '<div class="mref-track"><div class="mref-fill" style="width:'+pct.toFixed(1)+'%;background:var('+color+')"></div></div>'+
+        '<div class="mref-val">'+Math.round(val)+'</div></div>';
+    }
+    var h=bar('登り',r.ascent,'--bad')+bar('下り',r.descent,'--info');
+    $('profilebars').innerHTML=h;
   }
 
   function render(){
@@ -372,13 +364,12 @@
     var w=$('tablewrap');
     if(rows.length===0){w.innerHTML='<p class="empty">「比較表に追加」で物件を並べると、体感分数の小さい順に自動で並びます。データはこのブラウザに保存されます。</p>';return;}
     var sorted=rows.slice().sort(function(a,b){return a.taikan-b.taikan;});
-    var h='<table><thead><tr><th>物件</th><th class="num">法定分</th><th class="num">勾配%</th><th class="num">コース定数</th><th class="num">体感分</th><th class="num">月kcal</th><th></th></tr></thead><tbody>';
+    var h='<table><thead><tr><th>物件</th><th class="num">法定分</th><th class="num">コース定数</th><th class="num">体感分</th><th class="num">月kcal</th><th></th></tr></thead><tbody>';
     sorted.forEach(function(r){
       var b=band(r.effMets);
       h+='<tr>';
       h+='<td>'+r.name+'</td>';
       h+='<td class="num">'+r.legal+'</td>';
-      h+='<td class="num">'+(r.grade*100).toFixed(1)+'</td>';
       h+='<td class="num">'+(r.cc!=null?r.cc.toFixed(2):'-')+'</td>';
       h+='<td class="num"><span class="pill" style="background:var('+b[1]+');color:var('+b[2]+')">'+Math.round(r.taikan)+'</span></td>';
       h+='<td class="num">'+Math.round(r.month).toLocaleString()+'</td>';
