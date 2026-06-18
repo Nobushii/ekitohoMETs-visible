@@ -50,7 +50,7 @@
     margin:18px 0 10px;padding-top:14px;border-top:1px dashed var(--line)}
   .verdict{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;
     padding:7px 16px;border-radius:999px;margin-bottom:16px}
-  .readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;
+  .readouts{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:1px;
     background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
   .ro{background:var(--surface);padding:12px 14px}
   .ro .k{font-size:11.5px;color:var(--ink-2);letter-spacing:.02em}
@@ -152,8 +152,6 @@
       <div class="ro"><div class="k">実所要時間 往復 目安</div><div class="v"><span id="o-elapsed">–</span><small> 分</small></div></div>
       <div class="ro"><div class="k">運動強度（往復平均）</div><div class="v"><span id="o-mets">–</span><small> METs</small></div><div class="note">平地比 <span id="o-ratio">–</span>倍</div></div>
       <div class="ro"><div class="k">往復の累計標高（登り＋下り）</div><div class="v"><span id="o-relief">–</span><small> m</small></div><div class="note">net <span id="o-net">–</span> m</div></div>
-      <div class="ro"><div class="k">1往復の消費</div><div class="v"><span id="o-rt">–</span><small> kcal</small></div></div>
-      <div class="ro"><div class="k">月20往復の消費</div><div class="v"><span id="o-month">–</span><small> kcal</small></div></div>
       <div class="ro"><div class="k">コース定数 往復（参考）</div><div class="v"><span id="o-cc">–</span></div></div>
     </div>
 
@@ -369,8 +367,6 @@
     $('o-ratio').textContent=r.ratio.toFixed(2);
     $('o-relief').textContent=Math.round(r.reliefRT);
     $('o-net').textContent=Math.round(r.net);
-    $('o-rt').textContent=Math.round(r.kRT);
-    $('o-month').textContent=Math.round(r.month).toLocaleString();
     $('o-cc').textContent=r.cc.toFixed(2);
     var b=band(r.effMets), v=$('verdict');
     v.textContent=b[0];
