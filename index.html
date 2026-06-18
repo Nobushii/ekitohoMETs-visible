@@ -105,9 +105,12 @@
     <div class="grid">
       <div><label for="name">物件名</label><input type="text" id="name" value="A物件"></div>
       <div><label for="dist">駅までの道路距離 (m)</label><input type="number" id="dist" value="800" min="1" step="10"></div>
-      <div><label for="elev">自宅と駅の高低差 (m)</label><input type="number" id="elev" value="40" min="0" step="1"></div>
+      <div><label for="elev">自宅と駅の高低差 (m) <span style="color:var(--ink-3)">かんたん入力</span></label><input type="number" id="elev" value="40" min="0" step="1"></div>
       <div><label for="wt">体重 (kg) <span style="color:var(--ink-3)">任意・kcal計算のみ</span></label><input type="number" id="wt" value="50" min="1" step="1"></div>
+      <div><label for="ascent">片道 登り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="ascent" value="0" min="0" step="1"></div>
+      <div><label for="descent">片道 下り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="descent" value="0" min="0" step="1"></div>
     </div>
+    <p class="foot">起伏のある道は「登り/下り累計」を入れると往復一式で精度よく評価します。未入力なら高低差(net)を使用（＝登りのみ）。</p>
 
     <div class="subhead">現地補正</div>
     <div class="grid">
@@ -123,14 +126,14 @@
   </div>
 
   <div class="card">
-    <h2>結果（基準は「夜の登り帰宅」）</h2>
+    <h2>結果（往復ベース）</h2>
     <span class="verdict" id="verdict"></span>
     <div class="readouts">
-      <div class="ro"><div class="k">法定徒歩分数 (80m/分)</div><div class="v"><span id="o-legal">–</span><small> 分</small></div></div>
-      <div class="ro"><div class="k">体感分数（労力＋待ち）</div><div class="v"><span id="o-taikan">–</span><small> 分</small></div></div>
-      <div class="ro"><div class="k">実所要時間 目安</div><div class="v"><span id="o-elapsed">–</span><small> 分</small></div></div>
-      <div class="ro"><div class="k">登りの運動強度</div><div class="v"><span id="o-mets">–</span><small> METs</small></div><div class="note">平地比 <span id="o-ratio">–</span>倍</div></div>
-      <div class="ro"><div class="k">平均勾配</div><div class="v"><span id="o-grade">–</span><small> %</small></div></div>
+      <div class="ro"><div class="k">法定徒歩分数 片道 (80m/分)</div><div class="v"><span id="o-legal">–</span><small> 分</small></div></div>
+      <div class="ro"><div class="k">体感分数 往復（労力＋待ち）</div><div class="v"><span id="o-taikan">–</span><small> 分</small></div></div>
+      <div class="ro"><div class="k">実所要時間 往復 目安</div><div class="v"><span id="o-elapsed">–</span><small> 分</small></div></div>
+      <div class="ro"><div class="k">運動強度（往復平均）</div><div class="v"><span id="o-mets">–</span><small> METs</small></div><div class="note">平地比 <span id="o-ratio">–</span>倍</div></div>
+      <div class="ro"><div class="k">往復の累計標高（登り＋下り）</div><div class="v"><span id="o-relief">–</span><small> m</small></div><div class="note">net <span id="o-net">–</span> m</div></div>
       <div class="ro"><div class="k">1往復の消費</div><div class="v"><span id="o-rt">–</span><small> kcal</small></div></div>
       <div class="ro"><div class="k">月20往復の消費</div><div class="v"><span id="o-month">–</span><small> kcal</small></div></div>
       <div class="ro"><div class="k">コース定数 往復（参考）</div><div class="v"><span id="o-cc">–</span></div></div>
@@ -219,10 +222,14 @@
     };
   }
 
+  var DOWN_F=0.06; // 下りコスト係数（コース定数の 0.6/10 比に整合）
+
   function calc(){
     var c=consts();
     var dist=Math.max(1,num('dist',0));
     var elevIn=Math.max(0,num('elev',0));
+    var ascentIn=Math.max(0,num('ascent',0));
+    var descentIn=Math.max(0,num('descent',0));
     var steps=Math.max(0,num('steps',0));
     var wt=Math.max(1,num('wt',50));
     var signals=Math.max(0,num('signals',0));
@@ -231,31 +238,48 @@
     var stroller=$('stroller').checked;
     var carry=$('carry').checked;
 
-    var elev=elevIn+steps*c.stair;
-    var grade=elev/dist;
-    var flatMets=(0.1*c.speed+3.5)/3.5;
-    var upMets=(0.1*c.speed+1.8*c.speed*grade+3.5)/3.5;
+    // 起伏モデル：登り/下り累計が入っていればそれを使う。無ければ高低差(net)＝登りのみ。
+    var stairRise=steps*c.stair;
+    var hasProfile=(ascentIn+descentIn)>0;
+    var Au=(hasProfile?ascentIn:elevIn)+stairRise; // 片道 登り累計（階段込み）
+    var Ad=hasProfile?descentIn:0;                 // 片道 下り累計
+    var net=Au-Ad;                                  // net高低差
+    var V=Au+Ad;                                    // 起伏総量（=往復の総登り=総下り）
+
     var loadMult=local*(stroller?c.strollerF:1)*(carry?c.carryF:1);
-    var effMets=upMets*loadMult;
-    var ratio=upMets/flatMets;
 
-    var legal=Math.ceil(dist/c.speed);
-    var walkEquiv=legal*ratio*loadMult;
-    var wait=signals*c.sigWait+crossings*c.crossWait;
-    var taikan=walkEquiv+wait;
-    var elapsed=dist/c.speed+wait;
+    // METs/エネルギー：往復で評価（鉛直コストは累計標高だけで決まる）
+    var flatRate=0.1*c.speed+3.5;        // 平地VO2 (ml/kg/min)
+    var flatMets=flatRate/3.5;
+    var rtMin=2*dist/c.speed;            // 往復の歩行時間（分）
+    var rtH=rtMin/60;
+    var vertVO2=1.8*V*(1+DOWN_F);        // 往復の鉛直VO2/kg（登り+軽い下り）
+    var totalVO2=flatRate*rtMin+vertVO2; // 往復の総VO2/kg
+    var avgMets=(totalVO2/rtMin)/3.5;    // 往復平均METs
+    var effMets=avgMets*loadMult;
+    var ratio=avgMets/flatMets;
 
-    var th=(dist/c.speed)/60;
-    var kUp=upMets*loadMult*wt*th;
-    var kDown=flatMets*loadMult*wt*th;
-    var kRT=kUp+kDown;
+    // 消費kcal（往復）
+    var kFlat=flatMets*wt*rtH;           // 平地基線
+    var kVert=vertVO2*wt*0.005;          // 鉛直（5 kcal/L O2）
+    var kRT=(kFlat+kVert)*loadMult;
     var month=kRT*20;
 
-    var km=dist/1000, ekm=elev/1000, hrsRT=th*2;
-    var cc=1.8*hrsRT+0.3*(km*2)+10*ekm+0.6*ekm;
+    // 体感分（往復）：法定往復 + Naismith登りペナルティ(V/10) を荷重補正、待ちは往復で加算
+    var legal=Math.ceil(dist/c.speed);   // 片道法定（広告の徒歩分の基準）
+    var legalRT=2*legal;
+    var waitRT=(signals*c.sigWait+crossings*c.crossWait)*2;
+    var taikan=(legalRT+V/10)*loadMult+waitRT;
+    var elapsed=rtMin+waitRT;            // 実所要（往復）
 
-    return {dist:dist,elev:elev,grade:grade,upMets:upMets,effMets:effMets,ratio:ratio,
-      loadMult:loadMult,legal:legal,taikan:taikan,elapsed:elapsed,kRT:kRT,month:month,cc:cc,
+    // コース定数（往復）：登り/下りを正しく分離
+    var cc=1.8*rtH+0.3*(dist/1000*2)+10*(V/1000)+0.6*(V/1000);
+
+    var grade=V/(2*dist);                // 往復の実効勾配
+
+    return {dist:dist,elev:net,net:net,ascent:Au,descent:Ad,reliefRT:V,grade:grade,
+      avgMets:avgMets,upMets:avgMets,effMets:effMets,ratio:ratio,loadMult:loadMult,
+      legal:legal,legalRT:legalRT,taikan:taikan,elapsed:elapsed,kRT:kRT,month:month,cc:cc,
       name:($('name').value||'無名')};
   }
 
@@ -283,8 +307,8 @@
     s+='<rect x="'+(x1-9)+'" y="'+(homeY-11)+'" width="14" height="11" fill="'+accent+'"/>';
     s+='<polygon points="'+(x1-11)+','+(homeY-11)+' '+(x1-2)+','+(homeY-17)+' '+(x1+7)+','+(homeY-11)+'" fill="'+accent+'"/>';
     s+='<text x="'+x1+'" y="'+(homeY-21)+'" fill="'+ink3+'" font-size="10" text-anchor="middle" font-family="system-ui">自宅</text>';
-    s+='<text x="'+((x0+x1)/2)+'" y="'+(H-4)+'" fill="'+ink3+'" font-size="10" text-anchor="middle" font-family="system-ui">'+Math.round(r.dist)+' m ・ 勾配 '+(r.grade*100).toFixed(1)+'%</text>';
-    if(r.elev>0) s+='<text x="'+(x1)+'" y="'+(homeY+3)+'" fill="'+ink3+'" font-size="10" text-anchor="end" font-family="system-ui">+'+Math.round(r.elev)+'m</text>';
+    s+='<text x="'+((x0+x1)/2)+'" y="'+(H-4)+'" fill="'+ink3+'" font-size="10" text-anchor="middle" font-family="system-ui">'+Math.round(r.dist)+' m ・ 往復累計 '+Math.round(r.reliefRT)+' m</text>';
+    if(r.elev>0) s+='<text x="'+(x1)+'" y="'+(homeY+3)+'" fill="'+ink3+'" font-size="10" text-anchor="end" font-family="system-ui">net +'+Math.round(r.elev)+'m</text>';
     $('profile').innerHTML=s;
   }
 
@@ -293,9 +317,10 @@
     $('o-legal').textContent=r.legal;
     $('o-taikan').textContent=Math.round(r.taikan);
     $('o-elapsed').textContent=Math.round(r.elapsed);
-    $('o-mets').textContent=r.upMets.toFixed(1);
+    $('o-mets').textContent=r.avgMets.toFixed(1);
     $('o-ratio').textContent=r.ratio.toFixed(2);
-    $('o-grade').textContent=(r.grade*100).toFixed(1);
+    $('o-relief').textContent=Math.round(r.reliefRT);
+    $('o-net').textContent=Math.round(r.net);
     $('o-rt').textContent=Math.round(r.kRT);
     $('o-month').textContent=Math.round(r.month).toLocaleString();
     $('o-cc').textContent=r.cc.toFixed(2);
@@ -335,7 +360,7 @@
     }
   }
 
-  var inputs=['name','dist','elev','wt','steps','signals','crossings','local',
+  var inputs=['name','dist','elev','ascent','descent','wt','steps','signals','crossings','local',
     'c-speed','c-stair','c-signal','c-cross','c-stroller','c-carry'];
   inputs.forEach(function(id){$(id).addEventListener('input',render);});
   $('stroller').addEventListener('change',render);
@@ -353,11 +378,13 @@
     var c=consts();
     logToSheet({
       ts:new Date().toISOString(),
-      name:r.name, dist:r.dist, elev:r.elev, gradePct:+(r.grade*100).toFixed(2),
+      name:r.name, dist:r.dist, elev:r.net, net:r.net,
+      ascent:r.ascent, descent:r.descent, reliefRT:r.reliefRT,
+      gradePct:+(r.grade*100).toFixed(2),
       legal:r.legal, taikan:+r.taikan.toFixed(2), elapsed:+r.elapsed.toFixed(2),
-      upMets:+r.upMets.toFixed(3), effMets:+r.effMets.toFixed(3), ratio:+r.ratio.toFixed(3),
-      loadMult:+r.loadMult.toFixed(3), kRT:Math.round(r.kRT), month:Math.round(r.month),
-      cc:+r.cc.toFixed(2),
+      avgMETs:+r.avgMets.toFixed(3), upMets:+r.upMets.toFixed(3), effMets:+r.effMets.toFixed(3),
+      ratio:+r.ratio.toFixed(3), loadMult:+r.loadMult.toFixed(3),
+      kRT:Math.round(r.kRT), month:Math.round(r.month), cc:+r.cc.toFixed(2),
       wt:num('wt',50), steps:num('steps',0), signals:num('signals',0),
       crossings:num('crossings',0), local:num('local',1),
       stroller:$('stroller').checked, carry:$('carry').checked, speed:c.speed
