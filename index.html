@@ -99,6 +99,9 @@
   .mref-you .mref-label{font-weight:700;color:var(--ink)}
   .mref-you .mref-val{font-weight:700;color:var(--ink)}
   .refimg{display:block;width:100%;height:auto;border-radius:var(--r)}
+  .maproute{display:block;width:100%;height:320px;border:0;border-radius:var(--r)}
+  #tablewrap{overflow-x:auto}
+  #tablewrap table{min-width:560px}
 </style>
 </head>
 <body>
@@ -112,9 +115,10 @@
     <h2>物件の入力</h2>
     <div class="grid">
       <div><label for="name">物件名</label><input type="text" id="name" value="A物件"></div>
+      <div><label for="station">最寄駅</label><input type="text" id="station" value=""></div>
       <div><label for="dist">駅までの道路距離 (m)</label><input type="number" id="dist" value="800" min="1" step="10"></div>
       <div><label for="elev">自宅と駅の高低差 (m) <span style="color:var(--ink-3)">かんたん入力</span></label><input type="number" id="elev" value="40" min="0" step="1"></div>
-      <div><label for="wt">体重 (kg) <span style="color:var(--ink-3)">任意・kcal計算のみ</span></label><input type="number" id="wt" value="50" min="1" step="1"></div>
+      <div><label for="wt">体重 (kg) <span style="color:var(--ink-3)">任意・kcal計算のみ</span></label><input type="number" id="wt" value="65" min="1" step="1"></div>
       <div><label for="ascent">片道 登り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="ascent" value="0" min="0" step="1"></div>
       <div><label for="descent">片道 下り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="descent" value="0" min="0" step="1"></div>
     </div>
@@ -134,11 +138,17 @@
   </div>
 
   <div class="card">
+    <h2>徒歩ルート（Googleマップ）</h2>
+    <div id="routewrap"></div>
+    <p class="foot">物件名（または住所）→最寄駅の徒歩ルート。表示された距離を「駅までの道路距離」に手入力してください。</p>
+  </div>
+
+  <div class="card">
     <h2>結果（往復ベース）</h2>
     <span class="verdict" id="verdict"></span>
     <div class="readouts">
       <div class="ro"><div class="k">法定徒歩分数 片道 (80m/分)</div><div class="v"><span id="o-legal">–</span><small> 分</small></div></div>
-      <div class="ro"><div class="k">体感分数 往復（労力＋待ち）</div><div class="v"><span id="o-taikan">–</span><small> 分</small></div></div>
+      <div class="ro"><div class="k">体感分数 片道（労力＋待ち）</div><div class="v"><span id="o-taikan">–</span><small> 分</small></div></div>
       <div class="ro"><div class="k">実所要時間 往復 目安</div><div class="v"><span id="o-elapsed">–</span><small> 分</small></div></div>
       <div class="ro"><div class="k">運動強度（往復平均）</div><div class="v"><span id="o-mets">–</span><small> METs</small></div><div class="note">平地比 <span id="o-ratio">–</span>倍</div></div>
       <div class="ro"><div class="k">往復の累計標高（登り＋下り）</div><div class="v"><span id="o-relief">–</span><small> m</small></div><div class="note">net <span id="o-net">–</span> m</div></div>
@@ -206,6 +216,9 @@
   // 空のままなら送信せず、従来どおり localStorage のみで動作する。
   var LOG_ENDPOINT='https://script.google.com/macros/s/AKfycbxmBU6xQgi1nE8uQ1pq2OzZTwxXTJr_KGiwi_bmp6o83zP2jdebDHK6JIG71kZH_JyZ/exec';
 
+  // Google Maps Embed API のキー（無料）。空のままなら地図は出さず設定手順の注記のみ表示。
+  var MAPS_EMBED_KEY='';
+
   var store={
     get:function(){try{var s=localStorage.getItem('walk_index_rows');return s?JSON.parse(s):[];}catch(e){return rows;}},
     set:function(v){rows=v;try{localStorage.setItem('walk_index_rows',JSON.stringify(v));}catch(e){}}
@@ -246,7 +259,7 @@
     var ascentIn=Math.max(0,num('ascent',0));
     var descentIn=Math.max(0,num('descent',0));
     var steps=Math.max(0,num('steps',0));
-    var wt=Math.max(1,num('wt',50));
+    var wt=Math.max(1,num('wt',65));
     var signals=Math.max(0,num('signals',0));
     var crossings=Math.max(0,num('crossings',0));
     var local=Math.max(0,num('local',1));
@@ -280,12 +293,16 @@
     var kRT=(kFlat+kVert)*loadMult;
     var month=kRT*20;
 
-    // 体感分（往復）：法定往復 + Naismith登りペナルティ(V/10) を荷重補正、待ちは往復で加算
+    // 体感分：法定 + Naismith登りペナルティ(climb/10) を荷重補正、待ちを加算
     var legal=Math.ceil(dist/c.speed);   // 片道法定（広告の徒歩分の基準）
     var legalRT=2*legal;
     var waitRT=(signals*c.sigWait+crossings*c.crossWait)*2;
-    var taikan=(legalRT+V/10)*loadMult+waitRT;
+    var taikan=(legalRT+V/10)*loadMult+waitRT;     // 往復
     var elapsed=rtMin+waitRT;            // 実所要（往復）
+    // 片道体感分：登りは「きつい方」max(登り,下り)（登り帰宅基準）、待ちは片道
+    var climbOW=Math.max(Au,Ad);
+    var waitOW=signals*c.sigWait+crossings*c.crossWait;
+    var taikanOW=(legal+climbOW/10)*loadMult+waitOW;
 
     // コース定数（往復）：登り/下りを正しく分離
     var cc=1.8*rtH+0.3*(dist/1000*2)+10*(V/1000)+0.6*(V/1000);
@@ -294,8 +311,9 @@
 
     return {dist:dist,elev:net,net:net,ascent:Au,descent:Ad,reliefRT:V,grade:grade,
       avgMets:avgMets,upMets:avgMets,effMets:effMets,ratio:ratio,loadMult:loadMult,
-      legal:legal,legalRT:legalRT,taikan:taikan,elapsed:elapsed,kRT:kRT,month:month,cc:cc,
-      name:($('name').value||'無名')};
+      legal:legal,legalRT:legalRT,taikan:taikan,taikanOW:taikanOW,elapsed:elapsed,
+      kRT:kRT,month:month,cc:cc,
+      name:($('name').value||'無名'),station:($('station').value||'')};
   }
 
   function band(m){
@@ -303,6 +321,29 @@
     if(m<5)   return ['標準','--info-bg','--info'];
     if(m<6.5) return ['ややきつい','--warn-bg','--warn'];
     return ['きつい（毎日はしんどい）','--bad-bg','--bad'];
+  }
+
+  // Googleマップ徒歩ルート（Embed API）。キー未設定なら設定手順の注記のみ。
+  function renderRoute(){
+    var w=$('routewrap');
+    if(!MAPS_EMBED_KEY){
+      w.innerHTML='<p class="empty">Googleマップ徒歩ルートを表示するには、Maps Embed API のキーを設定してください（READMEの手順）。設定すると 物件名→最寄駅 の徒歩ルートが出ます。</p>';
+      return;
+    }
+    var name=($('name').value||'').trim();
+    var station=($('station').value||'').trim();
+    var base='https://www.google.com/maps/embed/v1/';
+    var src;
+    if(name&&station){
+      src=base+'directions?key='+MAPS_EMBED_KEY+'&mode=walking'+
+        '&origin='+encodeURIComponent(name)+'&destination='+encodeURIComponent(station+' 駅');
+    }else if(name||station){
+      src=base+'place?key='+MAPS_EMBED_KEY+'&q='+encodeURIComponent((name||station)+' 駅');
+    }else{
+      w.innerHTML='<p class="empty">物件名・最寄駅を入力すると徒歩ルートが表示されます。</p>';
+      return;
+    }
+    w.innerHTML='<iframe class="maproute" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen src="'+src+'"></iframe>';
   }
 
   function drawProfile(r){
@@ -322,7 +363,7 @@
   function render(){
     var r=calc();
     $('o-legal').textContent=r.legal;
-    $('o-taikan').textContent=Math.round(r.taikan);
+    $('o-taikan').textContent=Math.round(r.taikanOW);
     $('o-elapsed').textContent=Math.round(r.elapsed);
     $('o-mets').textContent=r.avgMets.toFixed(1);
     $('o-ratio').textContent=r.ratio.toFixed(2);
@@ -341,17 +382,22 @@
   function renderTable(){
     var w=$('tablewrap');
     if(rows.length===0){w.innerHTML='<p class="empty">「比較表に追加」で物件を並べると、体感分数の小さい順に自動で並びます。データはこのブラウザに保存されます。</p>';return;}
-    var sorted=rows.slice().sort(function(a,b){return a.taikan-b.taikan;});
-    var h='<table><thead><tr><th>物件</th><th class="num">法定分</th><th class="num">コース定数</th><th class="num">体感分</th><th class="num">METs</th><th class="num">月kcal</th><th></th></tr></thead><tbody>';
+    var ow=function(r){return r.taikanOW!=null?r.taikanOW:(r.taikan!=null?r.taikan:0);};
+    var sorted=rows.slice().sort(function(a,b){return ow(a)-ow(b);});
+    var h='<table><thead><tr><th>物件</th><th>最寄駅</th><th class="num">法定分</th><th class="num">体感分(片)</th><th class="num">METs</th><th class="num">コース定数</th><th class="num">駅まで(m)</th><th class="num">累計(登/下)</th><th></th></tr></thead><tbody>';
     sorted.forEach(function(r){
       var b=band(r.effMets);
+      var tk=r.taikanOW!=null?Math.round(r.taikanOW):(r.taikan!=null?Math.round(r.taikan):null);
+      var relief=(r.ascent!=null&&r.descent!=null)?(Math.round(r.ascent)+'/'+Math.round(r.descent)):'-';
       h+='<tr>';
       h+='<td>'+r.name+'</td>';
+      h+='<td>'+(r.station||'')+'</td>';
       h+='<td class="num">'+r.legal+'</td>';
-      h+='<td class="num">'+(r.cc!=null?r.cc.toFixed(2):'-')+'</td>';
-      h+='<td class="num"><span class="pill" style="background:var('+b[1]+');color:var('+b[2]+')">'+Math.round(r.taikan)+'</span></td>';
+      h+='<td class="num"><span class="pill" style="background:var('+b[1]+');color:var('+b[2]+')">'+(tk!=null?tk:'-')+'</span></td>';
       h+='<td class="num">'+(r.upMets!=null?r.upMets.toFixed(1):'-')+'</td>';
-      h+='<td class="num">'+Math.round(r.month).toLocaleString()+'</td>';
+      h+='<td class="num">'+(r.cc!=null?r.cc.toFixed(2):'-')+'</td>';
+      h+='<td class="num">'+Math.round(r.dist)+'</td>';
+      h+='<td class="num">'+relief+'</td>';
       h+='<td><button class="del" data-id="'+r.id+'" aria-label="削除">×</button></td>';
       h+='</tr>';
     });
@@ -367,11 +413,14 @@
     }
   }
 
-  var inputs=['name','dist','elev','ascent','descent','wt','steps','signals','crossings','local',
+  var inputs=['name','station','dist','elev','ascent','descent','wt','steps','signals','crossings','local',
     'c-speed','c-stair','c-signal','c-cross','c-stroller','c-carry'];
   inputs.forEach(function(id){$(id).addEventListener('input',render);});
   $('stroller').addEventListener('change',render);
   $('carry').addEventListener('change',render);
+  // 物件名・最寄駅の変更で徒歩ルート地図を更新
+  $('name').addEventListener('input',renderRoute);
+  $('station').addEventListener('input',renderRoute);
 
   $('add').addEventListener('click',function(){
     var r=calc();
@@ -385,14 +434,15 @@
     var c=consts();
     logToSheet({
       ts:new Date().toISOString(),
-      name:r.name, dist:r.dist, elev:r.net, net:r.net,
+      name:r.name, station:r.station, dist:r.dist, elev:r.net, net:r.net,
       ascent:r.ascent, descent:r.descent, reliefRT:r.reliefRT,
       gradePct:+(r.grade*100).toFixed(2),
-      legal:r.legal, taikan:+r.taikan.toFixed(2), elapsed:+r.elapsed.toFixed(2),
+      legal:r.legal, taikan:+r.taikan.toFixed(2), taikanOW:+r.taikanOW.toFixed(2),
+      elapsed:+r.elapsed.toFixed(2),
       avgMETs:+r.avgMets.toFixed(3), upMets:+r.upMets.toFixed(3), effMets:+r.effMets.toFixed(3),
       ratio:+r.ratio.toFixed(3), loadMult:+r.loadMult.toFixed(3),
       kRT:Math.round(r.kRT), month:Math.round(r.month), cc:+r.cc.toFixed(2),
-      wt:num('wt',50), steps:num('steps',0), signals:num('signals',0),
+      wt:num('wt',65), steps:num('steps',0), signals:num('signals',0),
       crossings:num('crossings',0), local:num('local',1),
       stroller:$('stroller').checked, carry:$('carry').checked, speed:c.speed
     });
@@ -413,6 +463,7 @@
   rows=store.get();
   render();
   renderTable();
+  renderRoute();
 })();
 </script>
 </body>
