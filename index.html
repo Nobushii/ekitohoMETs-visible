@@ -310,13 +310,14 @@
     var w=$('tablewrap');
     if(rows.length===0){w.innerHTML='<p class="empty">「比較表に追加」で物件を並べると、体感分数の小さい順に自動で並びます。データはこのブラウザに保存されます。</p>';return;}
     var sorted=rows.slice().sort(function(a,b){return a.taikan-b.taikan;});
-    var h='<table><thead><tr><th>物件</th><th class="num">法定分</th><th class="num">勾配%</th><th class="num">体感分</th><th class="num">月kcal</th><th></th></tr></thead><tbody>';
+    var h='<table><thead><tr><th>物件</th><th class="num">法定分</th><th class="num">勾配%</th><th class="num">METs</th><th class="num">体感分</th><th class="num">月kcal</th><th></th></tr></thead><tbody>';
     sorted.forEach(function(r){
       var b=band(r.effMets);
       h+='<tr>';
       h+='<td>'+r.name+'</td>';
       h+='<td class="num">'+r.legal+'</td>';
       h+='<td class="num">'+(r.grade*100).toFixed(1)+'</td>';
+      h+='<td class="num">'+(r.upMets!=null?r.upMets.toFixed(1):'-')+'</td>';
       h+='<td class="num"><span class="pill" style="background:var('+b[1]+');color:var('+b[2]+')">'+Math.round(r.taikan)+'</span></td>';
       h+='<td class="num">'+Math.round(r.month).toLocaleString()+'</td>';
       h+='<td><button class="del" data-id="'+r.id+'" aria-label="削除">×</button></td>';
