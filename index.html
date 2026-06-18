@@ -91,6 +91,13 @@
   .kf label{margin:0}
   .kf input{height:34px}
   .foot{font-size:12px;color:var(--ink-3);margin-top:8px}
+  .mref-row{display:grid;grid-template-columns:96px 1fr 38px;gap:10px;align-items:center;margin-bottom:8px}
+  .mref-label{font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mref-track{height:14px;background:var(--surface-2);border-radius:999px;overflow:hidden}
+  .mref-fill{height:100%;background:var(--info);border-radius:999px;min-width:2px;transition:width .15s}
+  .mref-val{font-family:var(--mono);font-size:13px;text-align:right;color:var(--ink-2)}
+  .mref-you .mref-label{font-weight:700;color:var(--ink)}
+  .mref-you .mref-val{font-weight:700;color:var(--ink)}
 </style>
 </head>
 <body>
@@ -152,6 +159,12 @@
   </div>
 
   <div class="card">
+    <h2>日常生活のMETsと比べる</h2>
+    <div id="metsref"></div>
+    <p class="foot">METs＝安静時の何倍の強度か。あなたの「今回の帰宅（往復平均）」がどの活動くらいかの目安。</p>
+  </div>
+
+  <div class="card">
     <h2>物件比較（体感分数の小さい順）</h2>
     <div id="tablewrap"></div>
   </div>
@@ -172,12 +185,13 @@
   <details>
     <summary>計算根拠</summary>
     <div class="details-body">
-      <p><strong>法定徒歩分数</strong>：不動産表示規約で <code>道路距離 ÷ 80m</code>（端数切上げ）。勾配・信号・階段は含まない基準値。</p>
-      <p><strong>運動強度 METs</strong>：ACSM歩行式 <code>VO₂ = 0.1·S + 1.8·S·勾配 + 3.5</code>、<code>METs = VO₂÷3.5</code>。Sは速度(m/分)。平地80m/分で約3.3 METs。</p>
-      <p><strong>体感分数</strong> = 法定分 ×（登りMETs ÷ 平地METs）× 荷重倍率 ＋ 待ち時間。荷重倍率＝ベビーカー×抱っこ×現地補正。階段は <code>段数 × 1段の高さ</code> を高低差に加算して勾配へ反映。</p>
-      <p><strong>消費カロリー</strong> = METs × 体重 × 時間。<strong>体重はここだけに効きます</strong>（体感分数・判定には無関係）。</p>
-      <p><strong>コース定数</strong> = <code>1.8·時間(h) + 0.3·距離(km) + 10·登り(km) + 0.6·下り(km)</code>。登山向けの式で短距離は登り項を過大評価しがちなので、絶対値より物件間の相対順位として使う。</p>
-      <p class="foot">下りは平地相当として扱う簡略化。実際の登坂はこの数字より時間がかかる。判定バンドは登りMETs×荷重倍率：〜3.5 楽 / 〜5 標準 / 〜6.5 ややきつい / それ以上 きつい。</p>
+      <p><strong>往復で評価</strong>：行きと帰りで上り下りが入れ替わるので、<strong>往復の総登り＝総下り＝<code>V = 登り累計 + 下り累計</code></strong>（net高低差は相殺）。登り/下り累計を入れない場合は高低差(net)を登りのみとして扱う。</p>
+      <p><strong>法定徒歩分数（片道）</strong>：不動産表示規約で <code>道路距離 ÷ 80m</code>（端数切上げ）。広告の徒歩分の基準値。</p>
+      <p><strong>運動強度 METs（往復平均）</strong>：ACSM歩行式の登り項を道のりで積分すると鉛直コストは累計標高だけで決まる。<code>往復の総VO₂/kg = (0.1·S+3.5)·往復分 + 1.8·V·(1+0.06)</code>、<code>METs = 平均VO₂÷3.5</code>。Sは速度(m/分)。平地80m/分で約3.3 METs。</p>
+      <p><strong>体感分数（往復）</strong> = <code>(法定往復 + V/10) × 荷重倍率 ＋ 待ち時間×2</code>（<code>V/10</code> はNaismith：+1分/10m昇）。荷重倍率＝ベビーカー×抱っこ×現地補正。階段は <code>段数 × 1段の高さ</code> を登り累計に加算。</p>
+      <p><strong>消費カロリー（往復）</strong> = <code>(平地METs×体重×往復時間 + 鉛直VO₂×体重×0.005) × 荷重倍率</code>。<strong>体重はここだけに効きます</strong>（体感分数・判定には無関係）。</p>
+      <p><strong>コース定数（往復）</strong> = <code>1.8·往復時間(h) + 0.3·2D(km) + 10·V(km) + 0.6·V(km)</code>。登山向けの式で短距離は登り項を過大評価しがちなので、絶対値より物件間の相対順位として使う。</p>
+      <p class="foot">下りは登りの6%の軽いコストとして簡略化。実際の登坂はこの数字より時間がかかる。判定バンドは往復平均METs×荷重倍率：〜3.5 楽 / 〜5 標準 / 〜6.5 ややきつい / それ以上 きつい。</p>
     </div>
   </details>
 </div>
@@ -189,7 +203,7 @@
 
   // 全員分の算出データを集計するスプレッドシートの送信先（GAS Web App の /exec URL）。
   // 空のままなら送信せず、従来どおり localStorage のみで動作する。
-  var LOG_ENDPOINT='https://script.google.com/macros/s/AKfycbwnQWTPrAP-3P6knqW9dNiFgGkx4GejMP863_kJYtPa1sFpc6rqjveqRYE_vqXJXJjLKw/exec';
+  var LOG_ENDPOINT='https://script.google.com/macros/s/AKfycbxmBU6xQgi1nE8uQ1pq2OzZTwxXTJr_KGiwi_bmp6o83zP2jdebDHK6JIG71kZH_JyZ/exec';
 
   var store={
     get:function(){try{var s=localStorage.getItem('walk_index_rows');return s?JSON.parse(s):[];}catch(e){return rows;}},
@@ -290,6 +304,28 @@
     return ['きつい（毎日はしんどい）','--bad-bg','--bad'];
   }
 
+  // 日常生活のMETs早見表（参考値）
+  var METS_REF=[['デスクワーク',1.3],['食事・入浴',1.5],['料理・洗濯',2.0],
+    ['ストレッチ',2.3],['子どもの世話',2.5],['散歩',3.0]];
+
+  function renderMetsRef(you,youLoad){
+    var scaleMax=Math.max(3.5,you)*1.05;
+    function row(label,val,opt){
+      var pct=Math.max(0,Math.min(100,val/scaleMax*100));
+      var fill=opt&&opt.color?'background:var('+opt.color+')':'';
+      var cls=opt&&opt.you?' mref-you':'';
+      return '<div class="mref-row'+cls+'">'+
+        '<div class="mref-label">'+label+'</div>'+
+        '<div class="mref-track"><div class="mref-fill" style="width:'+pct.toFixed(1)+'%;'+fill+'"></div></div>'+
+        '<div class="mref-val">'+val.toFixed(1)+'</div></div>';
+    }
+    var h='';
+    METS_REF.forEach(function(it){h+=row(it[0],it[1]);});
+    var b=band(you*youLoad);
+    h+=row('▶ 今回の帰宅',you,{you:true,color:b[2]});
+    $('metsref').innerHTML=h;
+  }
+
   function drawProfile(r){
     var W=320,H=120,padL=26,padR=26,padB=22,padT=14;
     var x0=padL,x1=W-padR,baseY=H-padB;
@@ -329,6 +365,7 @@
     v.style.background='var('+b[1]+')';
     v.style.color='var('+b[2]+')';
     drawProfile(r);
+    renderMetsRef(r.avgMets,r.loadMult);
   }
 
   function renderTable(){
