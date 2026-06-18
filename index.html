@@ -100,6 +100,13 @@
   .mref-you .mref-val{font-weight:700;color:var(--ink)}
   .refimg{display:block;width:100%;height:auto;border-radius:var(--r)}
   .maproute{display:block;width:100%;height:320px;border:0;border-radius:var(--r)}
+  .tab-bar{display:flex;gap:0;margin-bottom:14px;border-bottom:2px solid var(--line)}
+  .tab-btn{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
+    padding:8px 16px;margin-bottom:-2px;font-size:13px;font-weight:600;
+    color:var(--ink-3);letter-spacing:.02em;cursor:pointer;transition:color .12s,border-color .12s}
+  .tab-btn:hover{background:none;color:var(--ink);transform:none}
+  .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .tab-pane[hidden]{display:none}
   #tablewrap{overflow-x:auto}
   #tablewrap table{min-width:560px}
 </style>
@@ -113,27 +120,31 @@
 
   <div class="card">
     <h2>物件の入力</h2>
-    <div class="grid">
-      <div><label for="name">物件名</label><input type="text" id="name" value="A物件"></div>
-      <div><label for="station">最寄駅</label><input type="text" id="station" value=""></div>
-      <div><label for="dist">駅までの道路距離 (m)</label><input type="number" id="dist" value="800" min="1" step="10"></div>
-      <div><label for="elev">自宅と駅の高低差 (m) <span style="color:var(--ink-3)">かんたん入力</span></label><input type="number" id="elev" value="" min="0" step="1" placeholder="未入力＝0"></div>
-      <div><label for="wt">体重 (kg) <span style="color:var(--ink-3)">任意・kcal計算のみ</span></label><input type="number" id="wt" value="65" min="1" step="1"></div>
-      <div><label for="ascent">片道 登り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="ascent" value="0" min="0" step="1"></div>
-      <div><label for="descent">片道 下り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="descent" value="0" min="0" step="1"></div>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="basic">基本情報</button>
+      <button class="tab-btn" data-tab="local">現地補正</button>
     </div>
-    <p class="foot">起伏のある道は「登り/下り累計」を入れると往復一式で精度よく評価します。未入力なら高低差(net)を使用（＝登りのみ）。</p>
-
-    <div class="subhead">現地補正</div>
-    <div class="grid">
-      <div><label for="steps">階段の段数（合計）</label><input type="number" id="steps" value="0" min="0" step="1"></div>
-      <div><label for="signals">信号・大通り横断の回数</label><input type="number" id="signals" value="0" min="0" step="1"></div>
-      <div><label for="crossings">踏切の回数</label><input type="number" id="crossings" value="0" min="0" step="1"></div>
-      <div><label for="local">現地補正係数（歩いた後の主観）</label><input type="number" id="local" value="1.00" min="0.5" step="0.05"></div>
+    <div class="tab-pane" id="tab-basic">
+      <div class="grid">
+        <div><label for="name">物件名</label><input type="text" id="name" value="A物件"></div>
+        <div><label for="station">最寄駅</label><input type="text" id="station" value=""></div>
+        <div><label for="dist">駅までの道路距離 (m)</label><input type="number" id="dist" value="800" min="1" step="10"></div>
+        <div><label for="ascent">片道 登り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="ascent" value="0" min="0" step="1"></div>
+        <div><label for="descent">片道 下り累計標高 (m) <span style="color:var(--ink-3)">起伏用・任意</span></label><input type="number" id="descent" value="0" min="0" step="1"></div>
+      </div>
+      <p class="foot">起伏のある道は「登り/下り累計」を入れると往復一式で精度よく評価します。</p>
     </div>
-    <div class="toggles">
-      <label class="chk"><input type="checkbox" id="stroller"> ベビーカー</label>
-      <label class="chk"><input type="checkbox" id="carry"> 抱っこ（乳児連れ）</label>
+    <div class="tab-pane" id="tab-local" hidden>
+      <div class="grid">
+        <div><label for="steps">階段の段数（合計）</label><input type="number" id="steps" value="0" min="0" step="1"></div>
+        <div><label for="signals">信号・大通り横断の回数</label><input type="number" id="signals" value="0" min="0" step="1"></div>
+        <div><label for="crossings">踏切の回数</label><input type="number" id="crossings" value="0" min="0" step="1"></div>
+        <div><label for="local">現地補正係数（歩いた後の主観）</label><input type="number" id="local" value="1.00" min="0.5" step="0.05"></div>
+      </div>
+      <div class="toggles">
+        <label class="chk"><input type="checkbox" id="stroller"> ベビーカー</label>
+        <label class="chk"><input type="checkbox" id="carry"> 抱っこ（乳児連れ）</label>
+      </div>
     </div>
   </div>
 
@@ -202,7 +213,6 @@
       <p><strong>法定徒歩分数（片道）</strong>：不動産表示規約で <code>道路距離 ÷ 80m</code>（端数切上げ）。広告の徒歩分の基準値。</p>
       <p><strong>運動強度 METs（往復平均）</strong>：ACSM歩行式の登り項を道のりで積分すると鉛直コストは累計標高だけで決まる。<code>往復の総VO₂/kg = (0.1·S+3.5)·往復分 + 1.8·V·(1+0.06)</code>、<code>METs = 平均VO₂÷3.5</code>。Sは速度(m/分)。平地80m/分で約3.3 METs。</p>
       <p><strong>体感分数（往復）</strong> = <code>(法定往復 + V/10) × 荷重倍率 ＋ 待ち時間×2</code>（<code>V/10</code> はNaismith：+1分/10m昇）。荷重倍率＝ベビーカー×抱っこ×現地補正。階段は <code>段数 × 1段の高さ</code> を登り累計に加算。</p>
-      <p><strong>消費カロリー（往復）</strong> = <code>(平地METs×体重×往復時間 + 鉛直VO₂×体重×0.005) × 荷重倍率</code>。<strong>体重はここだけに効きます</strong>（体感分数・判定には無関係）。</p>
       <p><strong>コース定数（往復）</strong> = <code>1.8·往復時間(h) + 0.3·2D(km) + 10·V(km) + 0.6·V(km)</code>。登山向けの式で短距離は登り項を過大評価しがちなので、絶対値より物件間の相対順位として使う。</p>
       <p class="foot">下りは登りの6%の軽いコストとして簡略化。実際の登坂はこの数字より時間がかかる。判定バンドは往復平均METs×荷重倍率：〜3.5 楽 / 〜5 標準 / 〜6.5 ややきつい / それ以上 きつい。</p>
     </div>
@@ -257,22 +267,20 @@
   function calc(){
     var c=consts();
     var dist=Math.max(1,num('dist',0));
-    var elevIn=Math.max(0,num('elev',0));
     var ascentIn=Math.max(0,num('ascent',0));
     var descentIn=Math.max(0,num('descent',0));
     var steps=Math.max(0,num('steps',0));
-    var wt=Math.max(1,num('wt',65));
     var signals=Math.max(0,num('signals',0));
     var crossings=Math.max(0,num('crossings',0));
     var local=Math.max(0,num('local',1));
     var stroller=$('stroller').checked;
     var carry=$('carry').checked;
 
-    // 起伏モデル：登り/下り累計が入っていればそれを使う。無ければ高低差(net)＝登りのみ。
+    // 起伏モデル：登り/下り累計が入っていればそれを使う。無ければ登り0扱い。
     var stairRise=steps*c.stair;
     var hasProfile=(ascentIn+descentIn)>0;
-    var Au=(hasProfile?ascentIn:elevIn)+stairRise; // 片道 登り累計（階段込み）
-    var Ad=hasProfile?descentIn:0;                 // 片道 下り累計
+    var Au=(hasProfile?ascentIn:0)+stairRise; // 片道 登り累計（階段込み）
+    var Ad=hasProfile?descentIn:0;            // 片道 下り累計
     var net=Au-Ad;                                  // net高低差
     var V=Au+Ad;                                    // 起伏総量（=往復の総登り=総下り）
 
@@ -288,12 +296,6 @@
     var avgMets=(totalVO2/rtMin)/3.5;    // 往復平均METs
     var effMets=avgMets*loadMult;
     var ratio=avgMets/flatMets;
-
-    // 消費kcal（往復）
-    var kFlat=flatMets*wt*rtH;           // 平地基線
-    var kVert=vertVO2*wt*0.005;          // 鉛直（5 kcal/L O2）
-    var kRT=(kFlat+kVert)*loadMult;
-    var month=kRT*20;
 
     // 体感分：法定 + Naismith登りペナルティ(climb/10) を荷重補正、待ちを加算
     var legal=Math.ceil(dist/c.speed);   // 片道法定（広告の徒歩分の基準）
@@ -314,7 +316,7 @@
     return {dist:dist,elev:net,net:net,ascent:Au,descent:Ad,reliefRT:V,grade:grade,
       avgMets:avgMets,upMets:avgMets,effMets:effMets,ratio:ratio,loadMult:loadMult,
       legal:legal,legalRT:legalRT,taikan:taikan,taikanOW:taikanOW,elapsed:elapsed,
-      kRT:kRT,month:month,cc:cc,
+      cc:cc,
       name:($('name').value||'無名'),station:($('station').value||'')};
   }
 
@@ -417,7 +419,7 @@
     }
   }
 
-  var inputs=['name','station','dist','elev','ascent','descent','wt','steps','signals','crossings','local',
+  var inputs=['name','station','dist','ascent','descent','steps','signals','crossings','local',
     'c-speed','c-stair','c-signal','c-cross','c-stroller','c-carry'];
   inputs.forEach(function(id){$(id).addEventListener('input',render);});
   $('stroller').addEventListener('change',render);
@@ -447,8 +449,8 @@
       elapsed:+r.elapsed.toFixed(2),
       avgMETs:+r.avgMets.toFixed(3), upMets:+r.upMets.toFixed(3), effMets:+r.effMets.toFixed(3),
       ratio:+r.ratio.toFixed(3), loadMult:+r.loadMult.toFixed(3),
-      kRT:Math.round(r.kRT), month:Math.round(r.month), cc:+r.cc.toFixed(2),
-      wt:num('wt',65), steps:num('steps',0), signals:num('signals',0),
+      cc:+r.cc.toFixed(2),
+      steps:num('steps',0), signals:num('signals',0),
       crossings:num('crossings',0), local:num('local',1),
       stroller:$('stroller').checked, carry:$('carry').checked, speed:c.speed
     });
@@ -462,6 +464,18 @@
         setTimeout(function(){$('export').textContent='JSONをコピー';},1500);
       });
     }
+  });
+
+  // タブ切り替え
+  var tabBtns=document.querySelectorAll('.tab-btn');
+  tabBtns.forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var target=btn.getAttribute('data-tab');
+      tabBtns.forEach(function(b){b.classList.remove('active');});
+      document.querySelectorAll('.tab-pane').forEach(function(p){p.hidden=true;});
+      btn.classList.add('active');
+      document.getElementById('tab-'+target).hidden=false;
+    });
   });
 
   if(LOG_ENDPOINT) $('logNote').hidden=false;
